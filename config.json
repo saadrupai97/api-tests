@@ -1,42 +1,65 @@
 {
   "activeEnv": "local",
-
   "environments": {
     "local": {
       "baseURL": "http://localhost:5005",
       "otp": "1234",
-      "fixtures": { "paidCourseId": "", "mcqExamId": "", "modelTestId": "" }
+      "fixtures": {
+        "paidCourseId": "",
+        "mcqExamId": "",
+        "modelTestId": ""
+      },
+      "existingStudent": {
+        "phone": "",
+        "otp": ""
+      }
     },
     "dev": {
       "baseURL": "https://api.shikho.dev",
       "otp": "1234",
-      "fixtures": { "paidCourseId": "", "mcqExamId": "", "modelTestId": "" }
+      "fixtures": {
+        "paidCourseId": "",
+        "mcqExamId": "",
+        "modelTestId": ""
+      },
+      "existingStudent": {
+        "phone": "",
+        "otp": ""
+      }
     },
     "stage": {
       "baseURL": "https://api.shikho.net",
       "otp": "1234",
-      "fixtures": { "paidCourseId": "", "mcqExamId": "", "modelTestId": "" }
+      "fixtures": {
+        "paidCourseId": "",
+        "mcqExamId": "",
+        "modelTestId": ""
+      },
+      "existingStudent": {
+        "phone": "",
+        "otp": ""
+      }
     }
   },
-
   "newStudent": {
     "firstName": "QA Automation",
     "class": "C8",
     "studyGroup": "",
     "vendor": "shikho",
-    "phonePrefixes": ["017", "013", "014", "015", "016", "018", "019"]
+    "phonePrefixes": [
+      "017",
+      "013",
+      "014",
+      "015",
+      "016",
+      "018",
+      "019"
+    ]
   },
-
-  "existingStudent": {
-    "phone": "",
-    "otp": ""
-  },
-
   "http": {
-    "userAgent": "Shikho/(250) 5.12.0 (Android 14; QA Automation)",
+    "userAgent": "Shikho/(520) 6.0.0 (Android 14; QA Automation)",
     "browserUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
   },
-
   "run": {
     "workers": 4,
     "timeoutMs": 60000,

@@ -1,6 +1,6 @@
 const { expect } = require('@playwright/test')
 const { newStudentPayload } = require('./testData')
-const { config, resolveTarget } = require('./env')
+const { resolveTarget } = require('./env')
 
 const testOtp = () => resolveTarget().otp
 
@@ -38,9 +38,13 @@ async function signupStudent(request, overrides = {}) {
   return { phone: payload.phone, userId: body.tokens.user_id, tokens: body.tokens, user: body.user }
 }
 
-// Logs into the account configured in config.json "existingStudent"; null when none is set.
+// Logs into config.json environments.<env>.existingStudent without sending an OTP; null when none is set.
+function existingStudentConfig() {
+  return resolveTarget().existingStudent || { phone: '', otp: '' }
+}
+
 async function loginExistingStudent(request) {
-  const { phone, otp } = config.existingStudent
+  const { phone, otp } = existingStudentConfig()
   if (!phone) return null
 
   const { res, body } = await loginWithOtp(request, { phone, otp: otp || testOtp() })
@@ -48,4 +52,4 @@ async function loginExistingStudent(request) {
   return { phone, userId: body.tokens.user_id, tokens: body.tokens }
 }
 
-module.exports = { testOtp, postJson, sendOtp, verifyOtp, loginWithOtp, signupStudent, loginExistingStudent }
+module.exports = { testOtp, postJson, sendOtp, verifyOtp, loginWithOtp, signupStudent, existingStudentConfig, loginExistingStudent }

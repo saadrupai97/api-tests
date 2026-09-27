@@ -12,7 +12,9 @@
     "test:smoke": "playwright test --grep @smoke",
     "test:ui": "playwright test --ui",
     "report": "playwright show-report",
-    "test:account": "playwright test --grep @existing-account"
+    "test:account": "playwright test --grep @existing-account",
+    "sanity:dev": "TEST_ENV=dev playwright test tests/sanity",
+    "sanity:stage": "TEST_ENV=stage playwright test tests/sanity"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0"

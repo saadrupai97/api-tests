@@ -1,9 +1,8 @@
 const { test, expect } = require('@playwright/test')
 const { graphqlRequest } = require('../helpers/graphql')
-const { loginExistingStudent, postJson } = require('../helpers/auth')
-const { config } = require('../helpers/env')
+const { loginExistingStudent, existingStudentConfig, postJson } = require('../helpers/auth')
 
-// Runs the logged-in read flows as a real QA account from config.json "existingStudent" (phone + otp), so QA can
+// Runs the logged-in read flows as a real QA account from config.json environments.<env>.existingStudent, so QA can
 // check a specific user's data (subscriptions, programs, quiz history). Skips when no phone is configured.
 
 const PROFILE_QUERY = `query Me($type: String!) { profile(type: $type) { id first_name } }`
@@ -15,7 +14,7 @@ test.describe.serial('Existing QA account', { tag: '@existing-account' }, () => 
   let student
 
   test.beforeAll(async ({ request }) => {
-    test.skip(!config.existingStudent.phone, 'Set existingStudent.phone (and otp) in config.json to run as a specific user')
+    test.skip(!existingStudentConfig().phone, 'Set environments.<env>.existingStudent.phone (and otp) in config.json')
     student = await loginExistingStudent(request)
   })
 

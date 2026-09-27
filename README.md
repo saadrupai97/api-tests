@@ -43,13 +43,13 @@ npm ci            # installs the exact versions from package-lock.json (use `npm
 ### 1.3 First run (about 1 minute)
 
 ```bash
-npx playwright test --list      # 1. sanity check: should print "Total: 86 tests in 15 files"
+npx playwright test --list      # 1. sanity check: should print "Total: 106 tests in 20 files"
 npm run test:smoke -- --list    # 2. optional: see the quick smoke set
 npm run test:dev                # 3. run everything against dev
 npm run report                  # 4. open the HTML report of that run
 ```
 
-A healthy dev run ends with roughly `78 passed, 8 skipped`. The skips are flows whose data isn't configured
+A healthy dev run ends with roughly `94 passed, 12 skipped`. The skips are flows whose data isn't configured
 (see §3.3), and "expected to fail" tests are known defects (§5). Neither is a problem.
 
 ### 1.4 Before running on stage
@@ -66,7 +66,8 @@ npm ci            # only needed if package.json / package-lock.json changed
 ```
 
 > **Production is blocked.** The suite refuses to start if the base URL is `api.shikho.com`, or if the
-> URL doesn't match the chosen environment (e.g. a stage URL configured under `dev`).
+> URL doesn't match the chosen environment (e.g. a stage URL configured under `dev`). The read-only sanity set
+> (§2.3) is built so it *could* run on prod, but enabling that is a separate, deliberate change (§2.3).
 
 ---
 
@@ -81,6 +82,7 @@ npm ci            # only needed if package.json / package-lock.json changed
 | `npm run test:stage:readonly` | Stage, but only tests that create **no data** (validation, auth guards, public catalogue) |
 | `npm run test:local` | Everything, against a gateway on `localhost:5005` |
 | `npm test` | Everything, against `activeEnv` from `config.json` |
+| `npm run sanity:dev` / `npm run sanity:stage` | Only the **read-only sanity set** (§2.3): the post-deploy check |
 
 ### 2.2 Run a subset
 
@@ -105,9 +107,41 @@ Put `TEST_ENV=dev` (or `stage` / `local`) in front of any command to override it
 |---|---|
 | `@smoke` | The main happy path of a flow. Run these for a quick check |
 | `@mutating` | Creates data (accounts, enrolments, orders, quiz attempts). Skipped by `test:stage:readonly` |
-| `@existing-account` | Uses the QA account from `config.json` → `existingStudent` |
+| `@existing-account` | Uses the QA account from `config.json` → `environments.<env>.existingStudent` |
+| `@sanity` | Read-only post-deploy checks in `tests/sanity/`. Never create data |
 
-### 2.3 Interactive mode
+### 2.3 Sanity check after a deploy (`tests/sanity/`)
+
+A small **read-only** set to answer "is this environment healthy?" in a few seconds. It creates **no** accounts,
+sends **no** SMS and makes **no** orders.
+
+```bash
+npm run sanity:stage     # after a stage deploy
+npm run sanity:dev       # after a dev deploy
+```
+
+| Spec | Checks |
+|---|---|
+| `gateway.spec.js` | `/heartbeat` answers; `/version` app config loads, **maintenance is off**, payment gateways enabled |
+| `catalogue.spec.js` | Public catalogue has active courses; a course detail page loads; unknown course fails cleanly |
+| `auth-guards.spec.js` | GraphQL / refresh / logout without a token → 401; send-sms, signup, login, verify reject an invalid phone (rejected before any user lookup or SMS); user check answers "not found" |
+| `lookups.spec.js` | Unknown invoice → 404; unknown pay-by-link order → invalid |
+| `account.spec.js` | *Only if `environments.<env>.existingStudent` is set:* logs the QA account in with its configured OTP (no SMS sent) and loads profile, subscriptions, enrolled programs, quiz history |
+
+For the account check, use a **dedicated QA account with a fixed OTP** in that environment. Logging in issues new
+tokens for it, so don't use a personal account.
+
+**Production:** these specs are written to be safe on prod, but the suite still refuses `api.shikho.com`.
+Enabling a prod sanity run is a deliberate change. It needs sign-off from backend, then:
+1. a `prod` entry in `config.json` → `environments` (`"baseURL": "https://api.shikho.com"`, a prod QA account with a fixed OTP);
+2. in `tests/helpers/env.js`, allow `api.shikho.com` **only** for `prod`, and in `playwright.config.js` set
+   `testMatch: 'sanity/**/*.spec.js'` when the env is `prod`, so no other test can ever be selected there;
+3. a script `"sanity:prod": "TEST_ENV=prod playwright test"`.
+
+Rule for anyone editing `tests/sanity/`: **nothing in this folder may create or change data.** No signups, no
+real OTP sends, no enrolments, no orders, no quiz starts.
+
+### 2.4 Interactive mode
 
 ```bash
 TEST_ENV=dev npm run test:ui
@@ -115,7 +149,7 @@ TEST_ENV=dev npm run test:ui
 
 This opens Playwright's UI. Pick a test, run it, and click each step to see the exact request and response.
 
-### 2.4 Reading the results
+### 2.5 Reading the results
 
 The terminal prints one line per test:
 
@@ -157,6 +191,10 @@ student, a specific QA account or specific exam/course ids, change it there. No 
         "paidCourseId": "",                     // pin the paid course used for checkout (blank = first paid course found)
         "mcqExamId": "",                        // MCQ exam to open (blank = test skipped)
         "modelTestId": ""                       // model test to open (blank = test skipped)
+      },
+      "existingStudent": {                      // a real QA account in THIS env, for the logged-in read checks
+        "phone": "",                            // blank = those tests are skipped
+        "otp": ""                               // the account's fixed OTP (blank = use the env's otp above)
       }
     },
     "local": { ... }, "stage": { ... }
@@ -170,13 +208,8 @@ student, a specific QA account or specific exam/course ids, change it there. No 
     "phonePrefixes": ["017", "013", ...]        // random test numbers start with one of these
   },
 
-  "existingStudent": {                          // a real QA account to run the logged-in checks as
-    "phone": "",                                // blank = those tests are skipped
-    "otp": ""                                   // blank = use the environment's otp (set it for fixed-OTP accounts)
-  },
-
   "http": {
-    "userAgent": "Shikho/(250) 5.12.0 (Android 14; QA Automation)",  // sent on every request
+    "userAgent": "Shikho/(520) 6.0.0 (Android 14; QA Automation)",  // sent on every request; build (520) must be >= 400 or /version answers "unsupported version"
     "browserUserAgent": "Mozilla/5.0 ..."       // used only by the web OTP-throttle test
   },
 
@@ -193,7 +226,7 @@ student, a specific QA account or specific exam/course ids, change it there. No 
 | Run against stage by default | `"activeEnv": "stage"` (or just use `npm run test:stage`) |
 | Test as an SSC student instead of Class 8 | `newStudent.class` → `"SSC"` |
 | Test as a Class 9 / 10 student | `newStudent.class` → `"C9"`, **and** set `newStudent.studyGroup` to a group valid in that env |
-| Check a particular user's data | `existingStudent.phone` → their number (+ `otp` if the account has a fixed OTP), then `npm run test:account` |
+| Check a particular user's data | `environments.<env>.existingStudent.phone` → their number (+ `otp` if the account has a fixed OTP), then `npm run test:account` |
 | Always buy the same paid course | `environments.<env>.fixtures.paidCourseId` → the course id |
 | Test a specific exam / model test | `environments.<env>.fixtures.mcqExamId` / `modelTestId` |
 | Stage uses a different test OTP | `environments.stage.otp` |
@@ -208,7 +241,7 @@ student, a specific QA account or specific exam/course ids, change it there. No 
 - **Discovery.** Flows find their own data through the API: a free course, a paid course, a trial-enabled program,
   a chapter that has MCQ questions. If none exists, the test **skips** with the reason.
 - **Fixtures.** Data that can't be discovered comes from `environments.<env>.fixtures`.
-- **Existing account.** `existingStudent` runs read-only checks against a real account. Logging in issues new
+- **Existing account.** `environments.<env>.existingStudent` runs read-only checks against a real account. Logging in issues new
   tokens, so it can log that account out on the same device type.
 
 ### 3.4 Adding a new environment
@@ -257,7 +290,7 @@ sandbox wallet credentials and signed gateway callbacks.
 ### Existing account: `tests/account/`
 | Spec | Flow | Checks |
 |---|---|---|
-| `existing-student.spec.js` | Log in as `existingStudent` | profile, subscriptions, enrolled programs, quiz history, token refresh |
+| `existing-student.spec.js` | Log in as the env's `existingStudent` | profile, subscriptions, enrolled programs, quiz history, token refresh |
 
 \* Known defect, see §5.
 
@@ -358,7 +391,7 @@ test.describe.serial('Thing flow: list -> do -> verify', { tag: '@mutating' }, (
 | Helper | From | Use |
 |---|---|---|
 | `signupStudent(request)` | `helpers/auth` | New student → `{ phone, userId, tokens, user }` |
-| `loginExistingStudent(request)` | `helpers/auth` | Logs in `existingStudent` from config (or `null`) |
+| `loginExistingStudent(request)` | `helpers/auth` | Logs in the env's `existingStudent` from config (or `null`) |
 | `sendOtp / verifyOtp / loginWithOtp` | `helpers/auth` | Individual auth steps |
 | `postJson(request, url, body, token?)` | `helpers/auth` | Any REST POST → `{ res, body }` |
 | `graphqlRequest(request, { url?, query, variables?, token? })` | `helpers/graphql` | Any GraphQL call. `url` defaults to `/graphql`; use `/public/graphql` for no-login queries |
@@ -448,6 +481,7 @@ api-tests/
     │   ├── graphql.js        # graphqlRequest({ url, query, variables, token })
     │   ├── testData.js       # random BD phone, signup payload (from config.newStudent)
     │   └── fixtures.js       # fixture('paidCourseId') from config.json
+    ├── sanity/                                                  # read-only post-deploy checks (never create data)
     ├── auth/  profile/  courses/  learning/  exams/  account/   # one folder per area, one spec per flow
 ```
 
@@ -465,4 +499,4 @@ api-tests/
 | Many `429` responses | OTP limits hit. Wait 2 minutes; don't change `http.userAgent` to a browser UA |
 | `Class is nil` / study group errors | `newStudent.class` missing, or C9–C12 without `newStudent.studyGroup` |
 | Lots of tests skipped | The environment lacks that data (reason printed). Seed it, or set a fixture in `config.json` |
-| `existingStudent login failed` | Wrong phone/OTP, or the account has a fixed OTP. Set `existingStudent.otp` |
+| `existingStudent login failed` | Wrong phone/OTP, or the account has a fixed OTP. Set `environments.<env>.existingStudent.otp` |
