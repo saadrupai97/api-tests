@@ -1,0 +1,20 @@
+{
+  "name": "shikho-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright API (e2e, no browser) test suite for Shikho production student flows via the gateway",
+  "scripts": {
+    "test": "playwright test",
+    "test:local": "TEST_ENV=local playwright test",
+    "test:dev": "TEST_ENV=dev playwright test",
+    "test:stage": "TEST_ENV=stage playwright test",
+    "test:stage:readonly": "TEST_ENV=stage playwright test --grep-invert \"@mutating|@existing-account\"",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "test:account": "playwright test --grep @existing-account"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}
