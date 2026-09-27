@@ -20,14 +20,50 @@ the app makes. Built for QA to run, configure and extend.
 
 ## 1. Setup
 
-You need **Node.js** (any recent LTS). Then, once:
+### 1.1 Prerequisites
 
-```bash
-cd api-tests
-npm install
-```
+| Need | Check with | Notes |
+|---|---|---|
+| **Node.js 18 or newer** (LTS recommended) | `node -v` | Install from [nodejs.org](https://nodejs.org) or `brew install node` (macOS) |
+| **npm** | `npm -v` | Comes with Node.js |
+| **git** + access to the repo | `git --version` | SSH key added to GitHub, or use the HTTPS URL |
+| Network access to the target env | open `https://api.shikho.dev/heartbeat` in a browser | Should show `{"message":"Beating","code":200}` |
 
 No browser download is needed: the suite only makes API calls.
+
+### 1.2 Get the code and install
+
+```bash
+git clone git@github.com:saadrupai97/api-tests.git
+# or: git clone https://github.com/saadrupai97/api-tests.git
+cd api-tests
+npm ci            # installs the exact versions from package-lock.json (use `npm install` if npm ci fails)
+```
+
+### 1.3 First run (about 1 minute)
+
+```bash
+npx playwright test --list      # 1. sanity check: should print "Total: 86 tests in 15 files"
+npm run test:smoke -- --list    # 2. optional: see the quick smoke set
+npm run test:dev                # 3. run everything against dev
+npm run report                  # 4. open the HTML report of that run
+```
+
+A healthy dev run ends with roughly `78 passed, 8 skipped`. The skips are flows whose data isn't configured
+(see §3.3), and "expected to fail" tests are known defects (§5). Neither is a problem.
+
+### 1.4 Before running on stage
+
+1. Confirm with backend that stage accepts the test OTP in `config.json` → `environments.stage.otp`.
+2. Start with the read-only run: `npm run test:stage:readonly` (creates no data).
+3. Then run the full set: `npm run test:stage`. It creates test accounts, trial enrolments, pending orders and quiz attempts.
+
+### 1.5 Getting updates
+
+```bash
+git pull
+npm ci            # only needed if package.json / package-lock.json changed
+```
 
 > **Production is blocked.** The suite refuses to start if the base URL is `api.shikho.com`, or if the
 > URL doesn't match the chosen environment (e.g. a stage URL configured under `dev`).
